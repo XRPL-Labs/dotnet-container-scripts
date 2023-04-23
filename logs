@@ -1,0 +1,14 @@
+#!/bin/bash
+
+cpt=${PWD##*/}          # to assign to a variable
+cpt=${result:-/}        # to correct for the case where PWD=/
+cpt=$(printf '%q\n' "${PWD##*/}")
+cpt=${cpt,,}
+
+num=20
+
+if [[ $1 -gt 20 ]]; then
+  num=$1
+fi
+
+docker logs -n $num $cpt
