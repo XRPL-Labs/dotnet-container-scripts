@@ -1,0 +1,53 @@
+#!/bin/bash
+
+cpt=${PWD##*/}          # to assign to a variable
+cpt=${result:-/}        # to correct for the case where PWD=/
+cpt=$(printf '%q\n' "${PWD##*/}")
+cpt=${cpt,,}
+
+rm -f /etc/nginx/sites-enabled/$cpt
+cp /etc/nginx/template/template-vhost /etc/nginx/sites-enabled/$cpt
+
+sed s/templatename/$cpt/g -i /etc/nginx/sites-enabled/$cpt
+
+lastportno=$(cat /etc/nginx/sites-enabled/* 2>&1 |grep "server localhost:"|cut -d ":" -f 2|cut -d ";" -f 1|sort -n|tail -n 1)
+nextportno=$(($lastportno + 2))
+
+sed s/:5000/:$nextportno/g -i /etc/nginx/sites-enabled/$cpt
+
+echo "Port: $nextportno"
+echo "Host: $cpt.hooks.xappscdn.com"
+echo ""
+
+finddll=$(find ${PWD}/*|grep runtimeconfig|head -n 1)
+thedll="run" # Fallback to project run command @dotnet
+
+if [[ $finddll == "" ]]; then
+  echo "No DLL found, not specifying a DLL to run"
+else
+  thedll=$(echo "$finddll"|sed s/runtimeconfig.json/dll/g)
+  thedll=$(printf '%q\n' "${thedll##*/}")
+  echo "DLL found: $thedll"
+fi
+
+echo "Stopping container"
+docker rm -f $cpt 2>&1
+
+echo "Starting container"
+
+docker run \
+  --restart unless-stopped \
+  -p $nextportno:$nextportno \
+  -dit \
+  --name $cpt \
+  -v ${PWD}/.dpk:/root/.aspnet/DataProtection-Keys \
+  -v ${PWD}:/app/ \
+  -w /app mcr.microsoft.com/dotnet/sdk:7.0 \
+  dotnet $thedll --urls "http://+:$nextportno"
+
+echo "Reloading nginx"
+nginx -t && nginx -s reload
+
+echo ""
+echo "Done"
+echo ""
