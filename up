@@ -6,7 +6,18 @@ cpt=$(printf '%q\n' "${PWD##*/}")
 cpt=${cpt,,}
 
 rm -f /etc/nginx/sites-enabled/$cpt
-cp /etc/nginx/template/template-vhost /etc/nginx/sites-enabled/$cpt
+
+hosturl="local"
+
+if [[ "$cpt" =~ "somedomain" ]]; then
+  cp /etc/nginx/template/template-vhost-somedomain /etc/nginx/sites-enabled/$cpt
+  hosturl="somedomain.local"
+else
+  cp /etc/nginx/template/template-vhost-anotherdomain /etc/nginx/sites-enabled/$cpt
+  hosturl="anotherdomain.local"
+fi
+
+# etc
 
 sed s/templatename/$cpt/g -i /etc/nginx/sites-enabled/$cpt
 
@@ -16,7 +27,7 @@ nextportno=$(($lastportno + 2))
 sed s/:5000/:$nextportno/g -i /etc/nginx/sites-enabled/$cpt
 
 echo "Port: $nextportno"
-echo "Host: $cpt.hooks.xappscdn.com"
+echo "Host: $cpt.$hosturl"
 echo ""
 
 finddll=$(find ${PWD}/*|grep runtimeconfig|head -n 1)
